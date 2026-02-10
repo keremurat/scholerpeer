@@ -1,10 +1,10 @@
-# ScholarPeer Prompts
+# ScholarPeer — Promptlar ve Kullanım Örnekleri
 
 > **Kaynak:** [ScholarPeer: A Context-Aware Multi-Agent Framework for Automated Peer Review](https://arxiv.org/abs/2601.22638v1)  
 > **Yazarlar:** Palash Goyal, Mihir Parmar, Yiwen Song, Hamid Palangi, Tomas Pfister, Jinsung Yoon (Google)  
 > **Tarih:** 30 Ocak 2026
 
-Bu dosya, ScholarPeer makalesinin **Appendix G** (Ajan Promptları) ve **Appendix H** (Değerlendirme Promptları) bölümlerinden çıkarılmış tüm promptları içermektedir.
+Bu dosya, ScholarPeer makalesinin **Appendix G** (Ajan Promptları), **Appendix H** (Değerlendirme Promptları) ve **Appendix E** (Kullanım Örnekleri) bölümlerinden çıkarılmış tüm promptları ve örnek çıktıları içermektedir.
 
 ---
 
@@ -29,544 +29,14 @@ Bu dosya, ScholarPeer makalesinin **Appendix G** (Ajan Promptları) ve **Appendi
 - [H.2 Side-by-Side (SxS) Evaluation](#h2-side-by-side-sxs-evaluation)
 - [H.3 Summary of Gains Analysis](#h3-summary-of-gains-analysis)
 
----
-
-## Ajan Promptları (Appendix G)
-
-### G.1 Summarizer Agent
-
-```
-You are an expert AI researcher specializing in distilling the core contributions of a research paper. Your task is to produce a concise and accurate summary.
-
-Please summarize the following research paper. Focus on the key contributions, methodology, and main results. The summary should be dense with information and serve as a reliable reference to analyze the paper.
-
-Paper Text:
-{paper_text}
-```
-
----
-
-### G.2 Literature Review Agent
-
-```
-You are an expert AI literature reviewer. Your goal is to perform a comprehensive, deep-dive literature search to map the state of a specific research domain up to a specific point in time.
-
-You do not critique papers. You collect, organize, and extract facts about them to support downstream expert analysis.
-
-Please conduct a comprehensive literature review for the research paper described below.
-
-CRITICAL CONSTRAINT: You must only search for and consider prior art published ON OR BEFORE the cutoff date: {cutoff_date}. Ignore any papers published after this date.
-
-Your Process:
-1. Domain Analysis: Analyze the input paper abstract to identify:
-   * The Broad Domain (e.g., Computer Vision).
-   * The Specific Sub-field (e.g., Weakly Supervised Object Detection).
-   * The Core Problem being solved.
-
-2. Search Execution (Iterative):
-   Use Google Search to find 30-50 of the most scientifically significant papers in this sub-field. You must look for:
-   * Foundational Papers: The papers that established the current paradigms (even if older).
-   * Key Datasets: Papers introducing the primary datasets used in this sub-field, or specific datasets used by the input paper.
-   * Recent SOTA: The papers holding the State-of-the-Art results at the time of the cutoff date {cutoff_date}.
-   * Direct Competitors: Papers solving the same problem with different methods.
-   * Surveys: Recent survey papers that summarize the field.
-
-3. Data Extraction:
-   * For each identified paper, extract the specific details required for our records (see output format below).
-   * For core_method, provide a specific description of their technical approach or dataset (few sentences).
-   * For datasets_and_performance, be as specific as possible about what was evaluated and the performance numbers (e.g., "Achieved 78.4% top-1 accuracy on ImageNet, outperforming FE-Net (72.9%)", not just "showed significant improvements in top-1 accuracy on ImageNet").
-   * No citation artifacts: Ensure that core_method and datasets_and_performance do not contain bracketed citation numbers (e.g., [12], [34]) as they have no meaning without the referenced paper/link.
-   * Survey handling: For survey papers, list the specific families of methods, models and datasets they cover in the core_method and datasets_and_performance fields.
-
-Output Format:
-Respond only with a JSON object containing the "Domain Analysis" and the "References" list.
-
-{
-  "domain_analysis": {
-    "broad_domain": "...",
-    "specific_subfield": "...",
-    "primary_datasets_commonly_used": ["...", "..."],
-    "standard_metrics_used": ["...", "..."]
-  },
-  "references": [
-    {
-      "title": "Title of Paper 1",
-      "venue_year": "CVPR 2023",
-      "authors": "Author A, Author B",
-      "is_foundational": true/false,
-      "is_sota_candidate": true/false,
-      "is_dataset_paper": true/false,
-      "is_survey_paper": true/false,
-      "core_method": "Specific description of their technical approach or dataset (few sentences).",
-      "datasets_and_performance": "Specifics on what they evaluated (e.g., 'Achieved 78.4% top-1 accuracy on ImageNet').",
-      "known_limitations": "Any widely known weaknesses of this method or dataset."
-    },
-    {
-      "title": "Title of Paper 2",
-      "...": "..."
-    }
-  ]
-}
-
-Input Paper Title, Author(s) and Abstract:
-{paper_abstract}
-```
-
----
-
-### G.3 Literature Expansion Agent
-
-```
-You are a Senior Research Lead auditing a literature review. Your goal is to identify gaps in a list of references and perform targeted searches to fill them.
-
-We have a preliminary literature review for the domain defined below. Your job is to identify what is missing and find it.
-
-Task:
-1. Analyze Gaps:
-   * Do we have the foundational papers that the current SOTA papers likely cite? (e.g., If we have 'Crossformer', do we have the original 'Transformer' or 'Autoformer' papers?)
-   * Do we have the papers that introduced the datasets listed in the domain_analysis?
-   * Are there temporal gaps? (e.g., We have 2018 and 2024, but nothing from 2020-2023).
-
-2. Targeted Search: Perform specific searches to find these missing papers (Constraint: published ON OR BEFORE {cutoff_date}).
-
-3. Output: Return a list of new unique papers to add to the reference list. Do not repeat existing papers.
-
-**Current Reference List:**
-
-{current_references_json}
-
-Output Format:
-Respond only with a JSON list of new reference objects (using the same schema as the input).
-
-[
-  {
-    "title": "Autoformer: Decomposition Transformers for Long-Term Series Forecasting",
-    "venue_year": "NeurIPS 2021",
-    "authors": "Haixu Wu, et al.",
-    "is_foundational": true/false,
-    "is_sota_candidate": true/false,
-    "is_dataset_paper": true/false,
-    "is_survey_paper": true/false,
-    "core_method": "Specific description of their technical approach or dataset (few sentences).",
-    "datasets_and_metrics": "Specifics on what they evaluated (e.g., 'Achieved 78.4% top-1 accuracy on ImageNet').",
-    "known_limitations": "Any widely known weaknesses of this method or dataset."
-  }
-]
-```
-
----
-
-### G.4 Sub-Domain Historian Agent
-
-```
-You are a Senior Science Historian. Your job is to synthesize the evolutionary arc of a research field.
-
-You care about the narrative of progress: how ideas evolved, what the current paradigms are, and what "Open Problems" remain unsolved.
-
-Based on the provided literature review, write a "Domain Narrative" for the "Novelty & Significance Reviewer".
-
-**Input Data:**
-Full Literature Review JSON:
-{literature_review_json}
-
-**Task:**
-1. **The Arc of Progress:** Briefly trace the history. What was the dominant paradigm 5 years ago? What paper changed it? Where are we now?
-2. **Gap Analysis:** Based on the most recent papers (closest to the cutoff date), what problems are explicitly stated as unsolved or limitations?
-3. **Significance Rubric:** Define what constitutes a "Significant" contribution in this specific moment. (e.g., "In 2025, small MSE improvements are less significant than efficiency gains or interpretability.")
-
-**Output Format:**
-Respond with a concise Markdown summary (approx. 300-400 words) containing the sections:
-a) Domain History (chronological summary of key shifts)
-b) Open Problems
-c) Significance Criteria
-```
-
----
-
-### G.5 Baseline Scout Agent
-
-```
-You are a ferocious benchmarking expert. Your sole job is to find what the authors are HIDING.
-
-You must find state-of-the-art (SOTA) methods and baselines that the authors *should* have compared against but didn't.
-
-Paper:
-{paper_text}
-
-YOUR TASK:
-1. Based on the paper, identify the research domain, the datasets used, and the baseline methods compared.
-2. Search for recent (last 3 years, before {cutoff_date}) SOTA methods for this domain.
-3. Identify specific methods and significant datasets that are MISSING from the authors' list.
-4. Return a list of these missing competitors and why they are relevant.
-
-Constraint: Only return papers published ON OR BEFORE {cutoff_date}.
-
-Output JSON format:
-
-{
-  "missing_baselines": [
-    {
-      "name": "Method Name",
-      "reference": "Author et al., Conf Year",
-      "reason": "Why it is a critical omission."
-    }
-  ],
-  "missing_datasets": [
-    {
-      "name": "Dataset Name",
-      "reference": "Author et al., Conf Year",
-      "reason": "Why it is a critical omission."
-    }
-  ]
-}
-```
-
----
-
-### G.6 Question Generator Agent
-
-#### Novelty Aspect
-
-**System Prompt:**
-
-```
-You are a highly-discerning AI researcher and top-tier conference reviewer. Your goal is to deconstruct a paper's contributions and formulate simple, direct questions to assess its novelty and significance.
-```
-
-**User Template:**
-
-```
-Please follow this two-step process to generate your questions:
-
-1. Identify Contribution Claims: First, carefully read the Paper Summary and Paper Text to identify the {num_questions} primary contribution claims. A contribution might be a new model, a new dataset, a new algorithm, a new theoretical insight, or a new application. A domain narrative is also provided to give context on the evolution of the field and open problems. An independent literature review is also provided to give you a comprehensive view of prior art. Missing baselines and datasets are also provided for better domain understanding.
-
-2. Formulate Simple Questions (one per claim): For each claim you identified, formulate one simple and direct question that assesses its novelty and significance. This question is a directive for a research assistant (who does not have the paper) to find conflicting or related prior art.
-
-Example Claim: The paper uses 'emotional prompts' to scale reasoning in LLMs.
-Example Question: "What is the novelty and significance of using 'emotional prompts' to improve reasoning in language models?"
-
-Return the questions in a JSON list format, like this:
-["Question investigating claim 1?", "Question investigating claim 2?", "Question investigating claim 3?"]
-
-Domain Narrative:
-{domain_narrative}
-
-Independent Literature Review:
-{literature_review}
-
-Missing Baselines and Datasets:
-{missing_baselines_datasets}
-
-Paper Summary:
-{summary}
-
-Paper Text:
-{paper_text}
-```
-
-#### Other Aspects (Soundness, Clarity)
-
-**System Prompt:**
-
-```
-You are a critical AI researcher and conference reviewer. Your goal is to ask probing questions about a paper to assess its quality along a specific dimension. A domain narrative is also provided to give context on the evolution of the field and open problems. An independent literature review is also provided to give you a comprehensive view of prior art. Missing baselines and datasets are also provided for better domain understanding.
-
-Based on the paper's summary and the full text, generate a list of {num_questions} critical questions to evaluate its {aspect}.
-
-These questions should be specific and designed to be answered based on the paper content, searching the web or academic databases.
-```
-
-**User Template:**
-
-```
-Return the questions in a JSON list format, like this:
-["question 1?", "question 2?", "question 3?"]
-
-Domain Narrative:
-{domain_narrative}
-
-Independent Literature Review:
-{literature_review}
-
-Missing Baselines and Datasets:
-{missing_baselines_datasets}
-
-Paper Summary:
-{summary}
-
-Paper Text:
-{paper_text}
-```
-
----
-
-### G.7 Answer Generator Agent
-
-#### Novelty Aspect (Search Enabled)
-
-**System Prompt:**
-
-```
-You are an AI researcher with access to Google search. Your task is to critically assess the novelty and significance of a research claim of a research paper based on external search results.
-```
-
-**User Template:**
-
-```
-Please perform a comprehensive literature search to answer the following question. Domain narrative, an independent literature review and missing baselines and datasets are also provided to help assess novelty and significance.
-
-The paper summary is provided for context.
-
-Constraint: The research paper was released on {cutoff_date}. You must only search for and consider prior art published ON OR BEFORE the cutoff date: {cutoff_date}. Do not include any papers published after this date.
-
-Follow these steps:
-1. Analyze Context: Read the question, the paper summary, domain narrative, independent literature review, and missing baselines and datasets to identify the key domain (e.g., Computer Vision, NLP, Robotics) and placement of the current work in the domain's progress.
-
-2. Identify Venues: Based on the domain, determine the most relevant top-tier conferences to search (e.g., CVPR, ICCV, ECCV for Vision; NeurIPS, ICLR, ICML, ACL, EMNLP for NLP/ML).
-
-3. Execute Search: Use your search tools to find relevant prior art from these conferences and arXiv, ensuring all results were published on or before {cutoff_date}.
-
-4. Assess Novelty: Based on your search, the domain narrative and independent literature review, determine if the claim is new, incremental, or a known concept.
-
-5. Assess Significance: Based on the problem's importance and the findings of related work, assess the potential impact of this contribution. Is it a niche problem or a major one? Are improvements likely to be large or small?
-
-6. Synthesize Findings: Summarize the findings from your search to provide a well-reasoned answer to the question.
-
-Answer format:
-1. A direct, paragraph-style answer to the question. Ensure to include:
-   a) degree of novelty (high, medium, low, incremental, none)
-   b) degree of significance (high, medium, low, none)
-   Include reasoning for your assessments.
-
-2. A bulleted list of 2-3 most relevant papers that support your answer. For each of these papers, provide:
-   a) title
-   b) authors
-   c) venue
-   d) year
-   e) key findings
-
-If you find no significant prior art, rate novelty as High and justify the significance assessment.
-
-Domain Narrative:
-{domain_narrative}
-
-Independent Literature Review:
-{literature_review}
-
-Missing Baselines and Datasets:
-{missing_baselines_datasets}
-
-Paper Summary:
-{summary}
-
-Question:
-{question}
-```
-
-#### Other Aspects
-
-**System Prompt:**
-
-```
-You are an AI researcher with deep insightful thinking. Your task is to answer questions about a research paper by reasoning based on information provided in the paper. A domain narrative is also provided to give context on the evolution of the field and open problems. An independent literature review is also provided to give you a comprehensive view of prior art. Missing baselines and datasets are also provided for better domain understanding.
-```
-
-**User Template:**
-
-```
-Please answer the following question based on the provided paper context. Provide a concise answer. Provide your answer as a single, well-reasoned paragraph.
-
-Question:
-{question}
-
-Paper Summary:
-{summary}
-
-Domain Narrative:
-{domain_narrative}
-
-Independent Literature Review:
-{literature_review}
-
-Missing Baselines and Datasets:
-{missing_baselines_datasets}
-
-Paper Text:
-{paper_text}
-```
-
----
-
-### G.8 Review Generator Agent
-
-```
-You are an AI researcher who is reviewing a paper that was submitted to a prestigious ML venue. Be critical and cautious in your decision. If a paper is bad or you are unsure, give it bad scores and reject it. Use the provided paper summary and a list of question-answer pairs generated by an AI agent to inform your assessment.
-
-{review_guidelines}
-
-Here is the AI summary of the paper you are asked to review:
-
-{summary}
-
-Here is the list of question-answer pairs generated by an AI agent to help you review the paper:
-
-{qa_pairs_text}
-
-Here is the paper you are asked to review:
-
-{paper_text}
-
-{fewshot_examples}
-```
-
----
-
-## Değerlendirme Promptları (Appendix H)
-
-### H.1 H-Max Score
-
-> Bireysel değerlendirmeleri insan uzman temel çizgilerine göre puanlamak için kullanılır.
-
-**System Prompt:**
-
-```
-You are an expert area chair evaluating an AI Reviewer Assistant. Your role is to determine if the AI provides value beyond what expert human reviewers provided.
-
-Special Instruction for evaluating "Novelty and Significance Assessment": You must only search for and consider information available on or before the cutoff date: {cutoff_date}. The cutoff date represents the date on which the paper was published; information after this date is irrelevant to the review.
-
-Follow the steps below for each evaluation:
-
-1. Thoroughly understand the paper by analyzing:
-   - Research objectives and contributions
-   - Methodology and experiments
-   - Claims and evidence
-   - Results and conclusions
-
-2. Identify the strongest points in the Human Reviews (collectively) to establish a standard expert baseline.
-
-3. Identify the delta: What did the AI mention that the humans missed? What did the humans mention that the AI missed?
-
-4. Verify the validity of each of the delta claims using direct quotes from the paper and external sources (for novelty and significance only).
-
-5. Assess the value-add of the AI review compared to the best human review for each aspect.
-   - If the AI includes a Literature Survey or cites papers that humans missed: REWARD THIS HEAVILY. This is a superhuman trait. Do not penalize it for "diverging" from humans.
-   - If the AI asks Deep Questions about assumptions that humans accepted blindly: REWARD THIS.
-
-You will evaluate reviews based on these key aspects:
-
-**Technical Accuracy**
-- How technically accurate is the AI review compared to the humans?
-
-**Constructive Value**
-- How actionable is the feedback compared to the humans?
-
-**Analytical Depth**
-- How thorough is the depth of AI review compared to humans?
-
-**Novelty and Significance Assessment (Search encouraged)**
-Use Google Search to actively verify the reviewers' claims about novelty and significance.
-
-1. Identify claims: What do the paper and reviewers claim is novel?
-2. Formulate search queries: Create targeted queries to find relevant prior work for these specific claims, explicitly restricting results to before {cutoff_date}.
-3. Execute Search: Focus on top-tier conferences in the relevant domain and arXiv.
-4. Verify and Compare:
-   - Did the AI find prior work that limits novelty which the humans missed? (High Score)
-   - Did the AI claim "high novelty" when humans correctly identified it as derivative work? (Low Score)
-   - Which assessment aligns better with the actual state of the field at the time?
-5. Cite Sources: You must cite the specific external papers (title, venue, year) you used to make this determination in the JSON output.
-
-For each of the above aspects and overall judgment, you must:
-1. Provide specific evidence from source materials
-2. Quote directly from paper and reviews; external sources only for "Novelty and Significance Assessment"
-3. Explain your reasoning in detail
-4. Consider alternative interpretations
-
-**Input Format:**
-
-#### Paper Text: ####
-<Paper text>
-
-#### AI Assistant's Review: ####
-<AI Review>
-
-#### Human Reviews (Ground Truth): ####
-<Human Reviews>
-
-**Respond in the following format:**
-
-THOUGHT:
-<THOUGHT>
-
-EVALUATION JSON:
-<JSON>
-
-In <THOUGHT>, for each aspect, compare the AI Assistant's review against the set of Human Reviews. Identify the best human review for that specific aspect and use it as your baseline (Score = 5), as a standard expert. You must justify why the AI deserves a higher or lower score based on the "Value-Add" it provides.
-
-Scoring Rubric (Compare against Best Human Baseline):
-
-- 10 (Superhuman / Verdict-Changing): The AI uncovers a critical insight that changes the fate of the paper (e.g., finding a fatal math error humans missed OR identifying a profound theoretical connection that elevates a rejected paper to an acceptance).
-- 9 (Transformative / Insightful): The AI provides a novel perspective that significantly reframes the paper's contribution. It might articulate the significance better than the authors did, or identify a missing baseline that reframes the results.
-- 8 (Clearly Superior): The AI review is significantly more thorough, constructive, or better substantiated than the best human review. It offers deep questions or literature context that humans omitted.
-- 7 (Superior): The AI review is noticeably deeper and more constructive than the best human review, though perhaps not "transformative."
-- 6 (Slightly Better): The AI review is slightly more polished, better structured, or covers one extra minor point compared to the best human review.
-- 5 (Equivalent / Human Level): The AI review is roughly equivalent in quality to the best human review. It covers the same major points with similar depth.
-- 4 (Slightly Worse): The AI review is valid but generic. It misses the specific nuance or "sharpness" that the expert human provided.
-- 3 (Worse): The AI review is valid but vague. It lacks detail and actionable feedback compared to the human (e.g., "Improve experiments" vs "Add dataset X").
-- 2 (Failure - Superficial): The review is technically "safe" (no direct lies) but functionally useless. It is too short, focuses only on trivial formatting issues, or completely misses the core technical innovation.
-- 1 (Failure - Critical Error/Hallucination): The AI makes a factual error about the paper (e.g., claims it uses Method A when it uses Method B) or cites non-existent papers. The review actively misleads the reader.
-
-In <JSON>, provide the evaluation in JSON format with the following fields in the order:
-
-- "Technical Accuracy Reason": "<detailed reason>"
-- "Technical Accuracy Score": <int 1-10>
-- "Constructive Value Reason": "<detailed reason>"
-- "Constructive Value Score": <int 1-10>
-- "Analytical Depth Reason": "<detailed reason>"
-- "Analytical Depth Score": <int 1-10>
-- "Novelty and Significance Assessment External Sources Used": List of retrieved papers (include title, venue, year and authors for each paper)
-- "Novelty and Significance Assessment Reason": "<detailed reason>"
-- "Novelty and Significance Assessment Score": <int 1-10>
-- "Overall Reason": "<detailed reason>"
-- "Overall Score": <int 1-10>
-
-This JSON will be automatically parsed, so ensure the format is precise and scores are integers.
-```
-
-**User Prompt:**
-
-```
-#### Paper Text: ####
-{paper_text}
-# ScholarPeer Prompts
-
-> **Kaynak:** [ScholarPeer: A Context-Aware Multi-Agent Framework for Automated Peer Review](https://arxiv.org/abs/2601.22638v1)  
-> **Yazarlar:** Palash Goyal, Mihir Parmar, Yiwen Song, Hamid Palangi, Tomas Pfister, Jinsung Yoon (Google)  
-> **Tarih:** 30 Ocak 2026
-
-Bu dosya, ScholarPeer makalesinin **Appendix G** (Ajan Promptları) ve **Appendix H** (Değerlendirme Promptları) bölümlerinden çıkarılmış tüm promptları içermektedir.
-
----
-
-## İçindekiler
-
-### Ajan Promptları (Appendix G)
-- [G.1 Summarizer Agent](#g1-summarizer-agent)
-- [G.2 Literature Review Agent](#g2-literature-review-agent)
-- [G.3 Literature Expansion Agent](#g3-literature-expansion-agent)
-- [G.4 Sub-Domain Historian Agent](#g4-sub-domain-historian-agent)
-- [G.5 Baseline Scout Agent](#g5-baseline-scout-agent)
-- [G.6 Question Generator Agent](#g6-question-generator-agent)
-  - [Novelty Aspect](#novelty-aspect)
-  - [Other Aspects (Soundness, Clarity)](#other-aspects-soundness-clarity)
-- [G.7 Answer Generator Agent](#g7-answer-generator-agent)
-  - [Novelty Aspect (Search Enabled)](#novelty-aspect-search-enabled)
-  - [Other Aspects](#other-aspects)
-- [G.8 Review Generator Agent](#g8-review-generator-agent)
-
-### Değerlendirme Promptları (Appendix H)
-- [H.1 H-Max Score](#h1-h-max-score)
-- [H.2 Side-by-Side (SxS) Evaluation](#h2-side-by-side-sxs-evaluation)
-- [H.3 Summary of Gains Analysis](#h3-summary-of-gains-analysis)
+### Kullanım Örnekleri (Appendix E)
+- [E.4 Ajan Çıktı Örnekleri](#e4-ajan-çıktı-örnekleri)
+  - [Summarizer Agent Örnek Çıktısı](#summarizer-agent-örnek-çıktısı)
+  - [Historian Agent Örnek Çıktısı](#historian-agent-örnek-çıktısı)
+  - [Baseline Scout Agent Örnek Çıktısı](#baseline-scout-agent-örnek-çıktısı)
+  - [Q&A Agent Örnek Çıktısı](#qa-agent-örnek-çıktısı)
+- [E.1 Uçtan Uca Örnek: ScholarPeer vs DeepReviewer-14B](#e1-uçtan-uca-örnek-scholarpeer-vs-deepreviewer-14b)
+- [E.2 Uçtan Uca Örnek: ScholarPeer vs AI Scientist v2](#e2-uçtan-uca-örnek-scholarpeer-vs-ai-scientist-v2)
 
 ---
 
@@ -1259,215 +729,512 @@ Analyze these traces and generate the summary JSON.
 
 ---
 
-## Değişken Açıklamaları
+## Kullanım Örnekleri (Appendix E)
 
-| Değişken | Açıklama |
-|---|---|
-| `{paper_text}` | Değerlendirilecek makalenin tam metni |
-| `{paper_abstract}` | Makalenin başlığı, yazarları ve özeti |
-| `{cutoff_date}` | Makalenin yayınlanma tarihi (bu tarihten sonraki çalışmalar dikkate alınmaz) |
-| `{summary}` | Summarizer Agent tarafından üretilen yapılandırılmış özet |
-| `{domain_narrative}` | Historian Agent tarafından üretilen alan anlatısı |
-| `{literature_review}` | Literature Review Agent tarafından üretilen literatür taraması |
-| `{literature_review_json}` | Literatür taramasının JSON formatı |
-| `{current_references_json}` | Mevcut referans listesinin JSON formatı |
-| `{missing_baselines_datasets}` | Baseline Scout Agent tarafından tespit edilen eksik temel çizgiler ve veri setleri |
-| `{num_questions}` | Üretilecek soru sayısı |
-| `{aspect}` | Değerlendirme boyutu (Technical Soundness, Clarity vb.) |
-| `{question}` | Cevaplanacak spesifik soru |
-| `{qa_pairs_text}` | Soru-cevap çiftlerinin metin formatı |
-| `{review_guidelines}` | Konferans-spesifik değerlendirme kılavuzları (ICLR, NeurIPS vb.) |
-| `{fewshot_examples}` | Az-örnekli (few-shot) örnekler |
-| `{ai_review}` | Yapay zeka tarafından üretilen değerlendirme |
-| `{human_review}` | İnsan uzman değerlendirmeleri |
-| `{review_a}` / `{review_b}` | SxS karşılaştırması için iki farklı değerlendirme |
-| `{model_a}` / `{model_b}` | Karşılaştırılan iki model adı |
-| `{num_samples}` | Değerlendirme izi sayısı |
-| `{sxs_evaluations}` | SxS değerlendirme izleri |
+> Aşağıdaki örneklerde **DBRNet** ve **GAFM** makaleleri kullanılarak ScholarPeer'ın her ajanının ürettiği gerçek çıktılar ve uçtan uca karşılaştırmalar gösterilmektedir.
+
+### E.4 Ajan Çıktı Örnekleri
+
+> **Örnek Makale:** *DBRNet: Advancing Individual-Level Continuous Treatment Estimation through Disentangled and Balanced Representation*  
+> **OpenReview:** https://openreview.net/pdf?id=tlqmkftgpw
 
 ---
 
-## Lisans
-
-Bu promptlar [ScholarPeer](https://arxiv.org/abs/2601.22638v1) makalesinden çıkarılmıştır. Orijinal çalışmanın yazarlarına ve Google'a aittir.
-#### AI Assistant's Review: ####
-{ai_review}
-
-#### Human Reviews: ####
-{human_review}
-```
-
----
-
-### H.2 Side-by-Side (SxS) Evaluation
-
-> İkili tercih sıralaması için kullanılır.
-
-**System Prompt:**
+#### Summarizer Agent Örnek Çıktısı
 
 ```
-You are a neutral arbitrator evaluating peer review comments for academic papers. Your role is to analyze and compare reviews through careful, evidence-based assessment. Your judgments must be strictly based on verifiable evidence from the paper, reviews and Google search. Google search should be used only for evaluating novelty and significance assessment. Do not use it for other dimensions.
+1. Problem Statement & Motivation:
+The paper addresses the challenge of estimating the Individualized Dose-Response Function (IDRF)—the causal
+effect of continuous treatments (e.g., medication dosage) on individual outcomes.
 
-Special Instruction for evaluating "Novelty and Significance Assessment": You must only search for and consider information available on or before the cutoff date: {cutoff_date}. The cutoff date represents the date on which the paper was published; information after this date is irrelevant to the review.
+Current Limitations Identified:
+• Discrete Constraints: Most existing Individual Treatment Effect (ITE) methods are limited to binary or
+  discrete treatments and cannot handle infinite counterfactuals in continuous settings.
+• Imprecise Bias Adjustment: Existing continuous methods (e.g., DRNet, VCNet) typically attempt to
+  "balance" the entire latent representation of covariates to remove selection bias. The authors argue this is
+  theoretically flawed because:
+  – Instrumental factors (affecting treatment only) should not be balanced.
+  – Confounder factors (affecting treatment and outcome) contain predictive information and should
+    not be discarded.
 
-For each evaluation, you must:
+2. Methodology: DBRNet
+The authors propose the Disentangled and Balanced Representation Network (DBRNet). The core philosophy
+is to disentangle covariates into three distinct latent factors and apply selection bias adjustment only where
+theoretically necessary.
 
-1. Thoroughly understand the paper by analyzing:
-   - Research objectives and contributions
-   - Methodology and experiments
-   - Claims and evidence
-   - Results and conclusions
+A. Disentangled Latent Factors
+• Instrumental Factors (Γ(x)): Affect Treatment (T) but not Outcome (Y).
+• Confounder Factors (Δ(x)): Affect both Treatment (T) and Outcome (Y).
+• Adjustment Factors (Υ(x)): Affect Outcome (Y) but not Treatment (T).
 
-2. For each review, methodically examine:
-   - Claims made about the paper
-   - Evidence cited to support claims
-   - Technical assessments and critiques
-   - Suggested improvements
+B. Model Architecture
+• Encoders: Three separate neural networks encode input X into Γ, Δ, and Υ.
+• Treatment Branch: Concatenates Γ and Δ to estimate the conditional density: P(ti|Γ(xi),Δ(xi)).
+• Outcome Branch: Concatenates Δ and Υ to predict Y using a Varying Coefficient Network (VCNet).
 
-3. Compare reviews systematically using:
-   - Direct quotes from paper and reviews
-   - Specific examples and counterexamples
-   - Clear reasoning chains
-   - Objective quality metrics
+C. Objective Function & Loss Terms
+The total loss is: J = w · Ly + αLT + βLdisc + γLind + λLreg.
+• Factual Loss (Ly): Prediction error for the observed outcome.
+• Treatment Loss (LT): Negative log-likelihood of the treatment density.
+• Discrepancy Loss (Ldisc): Forces Γ, Δ, Υ to be distinct/independent.
+• Independent Loss (Lind): Forces Υ to contain minimal treatment info.
+• Re-weighting (w): Uses inverse propensity score from relevant factors only:
+  w(ti, Γ, Δ) = 1 / P(ti|Γ(xi),Δ(xi))
 
-You will evaluate reviews based on these key aspects:
+3. Key Contributions
+• First Disentanglement for Continuous Treatment: DBRNet combines disentangled representation learning
+  with precise selection bias adjustment for continuous settings.
+• Theoretical Bias Elimination: Theorem 2 proves that re-weighting based on Instrumental and Confounder
+  factors yields an unbiased estimation of the IDRF loss.
+• Selective Balancing: Enforces independence via Lind and Ldisc rather than aggressive balancing, preserving
+  predictive power.
 
-**Technical Accuracy**
-- Are claims consistent with paper content?
-- Is evidence properly interpreted?
-- Are technical assessments valid?
-- Are critiques well-supported?
+4. Main Results & Experiments
+Evaluated on Synthetic, IHDP, and News datasets using Mean Integrated Squared Error (MISE) and Average MSE
+(AMSE).
 
-**Constructive Value**
-- How actionable is the feedback?
-- Are suggestions specific and feasible?
-- Is criticism balanced with strengths?
-- Would authors understand how to improve?
+Quantitative Performance:
+• DBRNet outperformed baselines (Dragonet, DRNet, VCNet, TransTEE) across almost all metrics.
+• Synthetic MISE: DBRNet 0.1414 vs. VCNet 0.1752.
+• IHDP MISE: DBRNet 1.78 vs. VCNet 2.33 vs. TransTEE 3.30.
 
-**Analytical Depth**
-- How thoroughly are key aspects examined?
-- Is analysis appropriately detailed?
-- Are important elements addressed?
-- Is assessment comprehensive?
-
-**Novelty and Significance Assessment (Search encouraged)**
-Use Google Search to actively verify the reviewers' claims about novelty and significance.
-
-1. Identify claims: What do the paper and reviewers claim is novel?
-2. Formulate search queries: Create targeted queries to find relevant prior work for these specific claims, explicitly restricting results to before {cutoff_date}.
-3. Execute Search: Focus on top-tier conferences in the relevant domain and arXiv.
-4. Verify and Compare:
-   - Did reviewer A or reviewer B miss a critical prior work that you found?
-   - Did reviewer A or reviewer B accurately identify that a novel claim is actually a known technique?
-   - Which reviewer's assessment of significance aligns better with the actual state of the field at the time?
-5. Cite Sources: You must cite the specific external papers (title, venue, year) you used to make this determination in the JSON output.
-
-For each of the above aspects and overall judgment, you must:
-1. Provide specific evidence from source materials
-2. Quote directly from paper and reviews; external sources only for "Novelty and Significance Assessment"
-3. Explain your reasoning in detail
-4. Consider alternative interpretations
-
-**Input Format:**
-
-#### Paper Text: ####
-<Paper text>
-
-#### Assistant A's Review: ####
-<Review A>
-
-#### Assistant B's Review: ####
-<Review B>
-
-**Respond in the following format:**
-
-THOUGHT:
-<THOUGHT>
-
-REVIEW COMPARISON JSON:
-<JSON>
-
-In <THOUGHT>, for each aspect, evaluate assistants A and B based on the above criteria followed by a comparative assessment. Treat this as the note-taking phase of your evaluation.
-
-In <JSON>, provide the review in JSON format with the following fields in the order:
-
-- "Technical Accuracy Reason": "<detailed reason>"
-- "Technical Accuracy Better Assistant": "<A/B/Tie>"
-- "Constructive Value Reason": "<detailed reason>"
-- "Constructive Value Better Assistant": "<A/B/Tie>"
-- "Analytical Depth Reason": "<detailed reason>"
-- "Analytical Depth Better Assistant": "<A/B/Tie>"
-- "Novelty and Significance Assessment External Sources Used": List of retrieved papers (include title, venue, year and authors for each paper)
-- "Novelty and Significance Assessment Reason": "<detailed reason>"
-- "Novelty and Significance Assessment Better Assistant": "<A/B/Tie>"
-- "Overall Reason": "<detailed reason>"
-- "Overall Better Assistant": "<A/B/Tie>"
-
-This JSON will be automatically parsed, so ensure the format is precise.
-```
-
-**User Prompt:**
-
-```
-#### Paper Text: ####
-{paper_text}
-
-#### Assistant A's Review: ####
-{review_a}
-
-#### Assistant B's Review: ####
-{review_b}
+Ablation & Analysis:
+• Component Importance: The Re-weighting function and Discrepancy Loss (Ldisc) are critical; removing
+  re-weighting increased errors significantly (e.g., +200% AMSE on IHDP).
+• Verification: t-SNE visualizations confirm effective separation of factors.
 ```
 
 ---
 
-### H.3 Summary of Gains Analysis
-
-> SxS muhakeme izlerinden nitel içgörüleri sentezlemek için kullanılır.
-
-**System Prompt:**
+#### Historian Agent Örnek Çıktısı
 
 ```
-You are an expert Meta-Reviewer for AI Science. You are tasked with analyzing a set of "Side-by-Side" (SxS) evaluation logs comparing two AI Research Assistants: {model_a} and {model_b}.
+Domain Narrative: Individualized Continuous Treatment Effect Estimation
 
-Your Goal: Synthesize a high-level qualitative report on why one model outperforms the other.
+1. Domain History: From Binning to Disentanglement
 
-Input Data:
-You will receive a list of {num_samples} evaluation traces. In each trace, a judge has reasoned about which assistant wrote a better review for a scientific paper.
+Five years ago, the dominant paradigm in Causal Inference was restricted to binary treatments (treated vs.
+control). The foundational work by Shalit et al. (2017) established Representation Learning—specifically
+balancing covariate distributions between groups—as the standard for handling selection bias.
 
-Instructions:
+The shift toward Continuous Treatment Effects (Dose-Response) began in earnest around 2020.
 
-1. **Identify Patterns**: Do not just list specific examples. Look for recurring themes across the traces (e.g., "Model A consistently hallucinates citations" or "Model B misses novelty discussions").
+• The Binning Era (~2020): Approaches like DRNet (Schwab et al., 2020) discretized continuous
+  treatments into bins (strata). This solved architectural challenges but sacrificed response curve
+  smoothness.
+• The Continuity Era (2021): Nie et al. (2021) introduced VCNet, replacing discretization with Varying
+  Coefficient networks to enforce functional smoothness, establishing continuity as a requirement.
+• The Architectural & Disentanglement Era (2022–2024): The field has shifted from global balancing
+  (which risks destroying info) to Disentangled Representations. Methods like DTRNet (2024) and
+  ACFR (2023) surgically separate instrumental, confounding, and adjustment factors. Simultaneously,
+  Transformers (TransTEE, 2022) have replaced simple feed-forward networks to better capture
+  interactions.
 
-2. **Cluster & Categorize**: Group similar observations into distinct categories (e.g., "Technical Depth", "Tone", "Constructiveness").
+2. Open Problems & Gaps
 
-3. **Attribution**:
-   - "Gains" are positive traits where the model performed *better* than the competitor.
-   - "Losses" are negative traits where the model performed *worse*.
+Despite recent progress, distinct "unsolved" territories remain:
 
-Output Format:
-Return a JSON object with the following structure. Limit to the top 5 most significant factors for each category.
+1. High-Dimensional & Unstructured Confounding: Most SOTA methods (VCNet, TransTEE) are
+   benchmarked on low-dimensional tabular data. Handling images or text as confounders remains
+   theoretically sparse, though StoNet and CausalDiffAE (2024) are making attempts.
+2. Generative Stability vs. Regression Precision: Generative approaches (GANs, Diffusion) offer
+   high-fidelity counterfactuals but suffer from training instability. Bridging this gap with the
+   precision of VCNet is an open challenge.
+3. Data Scarcity & Pre-training: CURE (2024) highlighted the potential of Foundation Models, but this
+   is under-explored due to the scarcity of large-scale biomedical datasets for continuous interventions.
 
+3. Significance Criteria (2025 Era)
+
+For a new contribution to be deemed "Significant", it must go beyond marginal MISE improvements on the
+IHDP benchmark.
+
+• Low Significance: Another MLP-based architecture that slightly beats DRNet on tabular data using
+  standard re-weighting.
+• High Significance:
+  – Metric Innovation: Rigorous handling of high-dimensional unstructured data (e.g., images)
+    as confounders.
+  – Theoretical Disentanglement: Provable separation of instrumental variables from confounders
+    without rigid functional forms.
+  – Efficiency: Architectures achieving Transformer-level performance with the inference speed
+    of simple regressors.
+  – Foundation Approaches: Transfer learning or pre-training mechanisms reducing reliance on
+    labeled counterfactual data.
+```
+
+---
+
+#### Baseline Scout Agent Örnek Çıktısı
+
+```json
 {
-  "{model_a} Gains": {
-    "<Category Name (e.g. Conciseness)>": "<Detailed explanation of the advantage observed across multiple papers>"
-  },
-  "{model_a} Losses": {
-    "<Category Name (e.g. Hallucination)>": "<Detailed explanation of the failure pattern>"
-  }
+  "missing_baselines": [
+    {
+      "name": "SCIGAN",
+      "reference": "Bica et al., NeurIPS 2020",
+      "reason": "This is a seminal SOTA method for continuous treatments. The authors discuss it in the text but exclude it from the main results table, avoiding a direct comparison."
+    },
+    {
+      "name": "End-to-End Balancing",
+      "reference": "Bahadori et al., ICML 2022",
+      "reason": "Represents the state-of-the-art for weighting/balancing methods in continuous settings. Its omission is critical as it directly challenges the authors' proposed re-weighting function."
+    },
+    {
+      "name": "Double Machine Learning (DML)",
+      "reference": "Chernozhukov et al., 2018",
+      "reason": "The gold-standard statistical baseline for continuous treatment effects. It is robust and often outperforms the Causal Forest baseline which was included by the authors."
+    }
+  ],
+  "missing_datasets": [
+    {
+      "name": "TCGA (The Cancer Genome Atlas)",
+      "reference": "Schwab et al., AAAI 2020",
+      "reason": "The standard high-dimensional benchmark (20k+ features) for continuous dosage. Its omission hides potential scalability issues of the complex disentanglement module."
+    },
+    {
+      "name": "MVICU (Mechanical Ventilation in ICU)",
+      "reference": "Bica et al., NeurIPS 2020",
+      "reason": "A critical real-world medical dataset for continuous treatments used by main competitors (DRNet, SCIGAN). Essential for validating claims about precision medicine applications."
+    }
+  ]
 }
 ```
 
-**User Prompt:**
+---
+
+#### Q&A Agent Örnek Çıktısı
+
+> İlk 5 soru-cevap çifti (teknik sağlamlık + yenilik)
+
+**Bölüm 1: Teknik Sağlamlık (Technical Soundness)**
 
 ```
-Here are {num_samples} evaluation traces from the SxS judge. Note: The names have been standardized so that "{model_a}" always refers to the first model and "{model_b}" always refers to the second, regardless of their position in the original prompt.
+Q: The paper relies on a heuristic argument of 'mutual gradient perturbation'. Can you provide
+   a formal theoretical guarantee (like Marvell's KL-divergence bound) that ensures leakage
+   mitigation?
 
---- BEGIN TRACES ---
-{sxs_evaluations}
---- END TRACES ---
+A: No formal theoretical guarantee is provided. The authors acknowledge in Section 5 that
+   "GAFM lacks the rigor of Marvell's upper bound." Instead, they rely on a heuristic argument
+   supported by empirical validation. They demonstrate that gradients derived from the GAN loss
+   and the randomized Cross-Entropy loss tend to have class centers that differ in opposite
+   directions. This "mutual gradient perturbation" empirically results in mixed intermediate
+   gradients, but the paper does not mathematically derive a worst-case privacy loss bound.
+```
 
-Analyze these traces and generate the summary JSON.
+```
+Q: Given the 'Defense-Efficiency Paradox', how does the computational overhead of GAFM compare
+   to Marvell for resource-constrained clients?
+
+A: The overhead does not negatively impact clients because the Generator and Discriminator are
+   exclusively hosted by the Label Party (Server). Non-label parties (clients) only train local
+   feature extractors (fθp), keeping their load comparable to vanilla Split Learning. While
+   Marvell also centralizes defense, it relies on costly iterative optimization to generate
+   noise; GAFM offloads this to simple "1-layer DNNs" on the server, effectively circumventing
+   the Defense-Efficiency Paradox for the client.
+```
+
+```
+Q: Why were state-of-the-art non-perturbation defenses like DiscreteSGD or CoAE omitted from
+   the baselines?
+
+A: The authors likely frame GAFM specifically as an evolution within the gradient perturbation
+   paradigm. They benchmark against Marvell and Max Norm (noise injection methods) rather than
+   quantization (DiscreteSGD) or compression (CoAE) methods. The domain narrative suggests they
+   viewed Marvell as the singular SOTA for perturbation, treating concurrent 2022 works like
+   CoAE as parallel rather than foundational.
+```
+
+```
+Q: How does the 'mutual gradient perturbation' generalize to multi-class classification where
+   gradients are not diametrically opposed?
+
+A: The defense would likely collapse in multi-class settings. The mechanism relies on the
+   geometric simplicity of binary classification, where gradients naturally cluster in
+   diametrically opposed directions (1D manifold). In a multi-class simplex (K classes), the
+   concept of "opposing" forces is ill-defined, and the current randomized response mechanism
+   lacks the directional guidance to confuse specific class boundaries in high-dimensional space.
+```
+
+```
+Q: How sensitive is the privacy-utility trade-off to the hyperparameter γ (balancing GAN/CE
+   losses)?
+
+A: It is highly sensitive, with a confirmed failure mode. If γ is improper (too low), the
+   Cross-Entropy loss dominates, canceling the perturbation effect and re-introducing leakage.
+   The authors admit tuning is challenging due to GAN instability but propose gradient
+   normalization as a heuristic fix.
+```
+
+**Bölüm 2: Yenilik ve Önem (Novelty & Significance)**
+
+```
+Q: Does the integration of GANs specifically for label protection in Split Learning appear in
+   prior art?
+
+A: High Novelty. While GANs exist in Federated Learning (e.g., FedCG for Horizontal FL, or
+   for attacking/reconstruction), using a GAN within the SplitNN architecture specifically to
+   create "mutual gradient perturbation" for label protection is distinct.
+   • FedCG (IJCAI 2022): Uses GANs in Horizontal FL for data augmentation/privacy.
+   • VertiGAN (PoPETS 2023): Uses GANs to publish synthetic data, not for active training
+     protection.
+   GAFM is significant because it addresses the "Defense-Efficiency Paradox" with a stable
+   architecture rather than unstable optimization (Marvell).
+```
+
+```
+Q: Has the combination of Wasserstein GAN loss and Randomized Cross-Entropy loss been used in
+   VFL defenses before?
+
+A: Highly Novel. This specific combination to achieve mutual cancellation is not found in prior
+   art (pre-Aug 2023). Previous methods used Randomized Response for Differential Privacy
+   (LabelDP) or GANs for synthesis, but not integrated into a single loss function to obfuscate
+   gradients in VFL.
+```
+
+```
+Q: Does 'Mutual Gradient Perturbation' differ theoretically from standard noise injection
+   (Marvell)?
+
+A: Medium to High Novelty. Yes. Marvell applies external, optimized noise. GAFM relies on an
+   intrinsic cancellation arising from conflicting objectives (GAN vs. CE). This is a
+   theoretical shift from "adding noise" to "structural obfuscation."
+```
+
+```
+Q: Do the proposed 'Mean' and 'Median' attacks offer novelty over existing clustering attacks?
+
+A: Incremental Novelty / Medium Significance. The concept of clustering gradients (e.g., Liu
+   et al., 2022) existed. Mean/Median attacks are specific heuristics within that framework.
+   However, they are significant as they provide a stronger benchmark than the standard Norm
+   attack, raising the bar for future defense evaluation.
+```
+
+```
+Q: Is the method applicable to complex architectures like Vision Transformers (ViTs)?
+
+A: Limited Applicability. The paper strictly limits scope to binary classification. There is
+   no evidence or design adaptation for ViTs, which have unique leakage vulnerabilities
+   (attention mechanisms). Given the geometric reliance on opposing gradients, applicability to
+   complex non-CNN architectures is unproven.
+```
+
+---
+
+### E.1 Uçtan Uca Örnek: ScholarPeer vs DeepReviewer-14B
+
+> **Örnek Makale:** *DBRNet: Advancing Individual-Level Continuous Treatment Estimation through Disentangled and Balanced Representation*  
+> **OpenReview:** https://openreview.net/pdf?id=tlqmkftgpw
+
+#### DeepReviewer-14B Değerlendirmesi (Özet)
+
+```
+Summary:
+This paper introduces DBRNet, a novel neural network architecture designed for estimating
+individualized dose-response functions (IDRFs) in the presence of continuous treatments.
+The core contribution of DBRNet lies in its integration of three key components:
+disentangled representation learning, balancing via re-weighting, and a varying coefficient
+network. [...]
+
+Strengths:
+The paper presents a well-structured and clearly articulated approach [...] The core strength
+of the paper lies in its novel integration of disentangled representation learning, balancing
+via re-weighting, and a varying coefficient network. [...]
+
+Weaknesses:
+First, the paper lacks a discussion on the generalizability of DBRNet to datasets with missing
+covariates. [...] Second, the paper does not provide a detailed analysis of the time complexity
+of DBRNet. [...] Third, the paper also lacks a discussion of the space complexity of DBRNet.
+[...] Fourth, the paper does not adequately address the limitations of DBRNet when dealing with
+high-dimensional covariates. [...]
+```
+
+#### ScholarPeer Değerlendirmesi
+
+```
+Summary:
+The paper proposes DBRNet (Disentangled and Balanced Representation Network) for estimating
+Individualized Dose-Response Functions (IDRF) in continuous treatment settings. The method
+addresses selection bias by disentangling covariates into three latent factors: Instrumental,
+Confounder, and Adjustment factors. [...]
+
+Strengths:
+• Theoretical Motivation: The core idea of 'selective balancing' specifically avoiding the
+  balancing of instrumental and adjustment factors is well-grounded in causal inference theory
+  and addresses a known limitation of methods that balance the entire covariate representation.
+• Ablation Studies: The ablation study effectively demonstrates the contribution of individual
+  components, particularly the discrepancy loss and re-weighting module, to the model's
+  performance on the chosen datasets.
+
+Weaknesses:
+• Missing Critical Baselines: The paper claims that no existing efforts are capable of
+  precisely adjusting for selection bias in continuous settings. This overlooks significant
+  recent contributions such as ADMIT (NeurIPS 2022) and End-to-End Balancing (ICML 2022),
+  which explicitly focus on re-weighting and balancing for continuous treatments. The comparison
+  is largely limited to methods from 2021 (VCNet) and earlier.
+• Missing Standard Benchmark: The evaluation excludes the TCGA dataset, which is a standard
+  high-dimensional semi-synthetic benchmark for continuous treatment effect estimation used by
+  VCNet, SCIGAN, TransTEE, and ADMIT.
+• Problematic Independence Loss (Lind): The proposed mechanism to enforce independence
+  (minimizing the log-likelihood of treatment given adjustment factors) is mathematically
+  brittle. Maximizing prediction error is unbounded and does not guarantee that the
+  representation contains no information about the treatment.
+• Naive Density Estimation: Despite focusing on continuous treatments, the propensity score
+  estimation relies on discretizing the treatment space into grids and using linear
+  interpolation.
+• Lack of Balance Metrics: The paper evaluates performance solely on outcome prediction error
+  (MISE/AMSE). It lacks metrics evaluating covariate balance.
+
+Suggestions:
+• Include comparisons with ADMIT (NeurIPS 2022) and End-to-End Balancing (ICML 2022).
+• Evaluate the method on the TCGA dataset.
+• Replace the Lind maximization of error with a more stable independence constraint, such as
+  a Gradient Reversal Layer (GRL) or minimizing Mutual Information.
+• Implement a truly continuous density estimator (e.g., Normalizing Flows or MDNs).
+• Report metrics on covariate balance.
+```
+
+#### LLM Yargıç Kararı (Gemini 3.0 Pro)
+
+```
+Winner: ScholarPeer
+
+Technical Accuracy Reason:
+ScholarPeer correctly identifies that the paper ignores critical recent SOTA methods (ADMIT,
+End-to-End Balancing) and standard benchmarks (TCGA) that contradict the authors' claims. The
+Baseline focuses on generic issues like missing data and complexity which are less central to
+the paper's scientific validity.
+
+Analytical Depth Reason:
+ScholarPeer critiques the mathematical formulation of the loss function (unbounded maximization
+of error) and the inconsistency of using discrete grid-based density estimation for a
+continuous treatment method. DeepReview 14B does not engage with the technical details of the
+architecture or loss functions.
+
+Novelty & Significance Reason:
+ScholarPeer correctly identifies that the paper's claim of being the 'first' to precisely
+adjust for selection bias in continuous settings is false, citing specific prior works (ADMIT,
+End-to-End Balancing) published in 2022. DeepReview 14B accepts the authors' claims without
+verifying the existence of recent competing methods.
+
+External Sources Used:
+• Bahadori, M. T., Tchetgen, E. T., & Heckerman, D. (2022). End-to-End Balancing for
+  Causal Continuous Treatment-Effect Estimation. ICML.
+• Wang, X., Lyu, S., Wu, X., Wu, T., & Chen, H. (2022). Generalization Bounds for
+  Estimating Causal Effects of Continuous Treatments. NeurIPS.
+
+Constructive Value Reason:
+ScholarPeer provides specific, actionable steps: compare against named baselines, use the TCGA
+dataset, and fix the unstable loss using Gradient Reversal Layers. The Baseline's suggestions
+("analyze time complexity") are generic and apply to almost any deep learning paper.
+
+Overall Verdict:
+ScholarPeer is superior in every dimension. It identifies a fatal flaw (ignoring direct prior
+work), points out the omission of a standard benchmark, and offers deep technical critiques of
+the loss function.
+```
+
+---
+
+### E.2 Uçtan Uca Örnek: ScholarPeer vs AI Scientist v2
+
+> **Örnek Makale:** *GAN-based Vertical Federated Learning for Label Protection*  
+> **OpenReview:** https://openreview.net/pdf?id=5Vh0XqOTGi
+
+#### AI Scientist v2 Değerlendirmesi (Özet)
+
+```
+Summary:
+The paper proposes the Generative Adversarial Federated Model (GAFM) to mitigate Label Leakage
+from Gradients (LLG) in Vertical Federated Learning (VFL) based on SplitNN. [...]
+
+Strengths:
+• Novelty: The integration of a GAN-based architecture specifically for privacy preservation
+  in SplitNN is a novel design choice.
+• Empirical Performance: The method demonstrates a superior trade-off between model utility
+  (AUC) and privacy (Leak AUC) compared to strong baselines like Marvell.
+• Evaluation Metrics: The proposal of Mean and Median attacks provides a stronger and more
+  rigorous benchmark.
+
+Weaknesses:
+• Lack of Theoretical Guarantees: The defense is heuristic.
+• Computational Overhead: The paper does not sufficiently analyze the training time.
+• Attack Assumptions: The proposed attacks assume the attacker knows the gradient centers or
+  medians of the classes.
+```
+
+#### ScholarPeer Değerlendirmesi
+
+```
+Summary:
+The paper introduces the Generative Adversarial Federated Model (GAFM) to address Label
+Leakage from Gradients (LLG) in Vertical Federated Learning (specifically Split Learning). [...]
+
+Strengths:
+• Problem Relevance: The paper addresses a critical privacy vulnerability (Label Leakage
+  from Gradients) in Split Learning.
+• New Attack Baselines: The proposed Mean and Median attacks appear to be more effective than
+  the standard Norm attack.
+• Empirical Performance: On the tested binary classification datasets, GAFM demonstrates a
+  favorable trade-off.
+
+Weaknesses:
+• Lack of Theoretical Guarantees: Unlike Marvell, which provides a theoretical upper bound
+  on leakage based on KL-divergence, or Differential Privacy methods, GAFM relies on a
+  heuristic argument.
+• Limited Scope (Binary Only): The proposed mechanism relies heavily on the geometry of binary
+  classification, where gradients for positive and negative classes tend to pull in opposite
+  directions. This severely restricts the significance of the work.
+• Missing Baselines: The evaluation is restricted to perturbation-based defenses. The paper
+  fails to compare against state-of-the-art non-perturbation defenses such as Confusional
+  AutoEncoders (CoAE) or deterministic gradient quantization methods.
+• Questionable Stability Claims: The paper claims GAFM is more stable than Marvell. However,
+  GANs are notoriously difficult to train and prone to instability (mode collapse, vanishing
+  gradients).
+
+Questions:
+• Can you derive any formal privacy bound for the proposed method?
+• How does the method perform against non-clustering based attacks?
+• Can you provide a more rigorous sensitivity analysis of the hyperparameter γ?
+• Why were non-perturbation baselines like CoAE or simple gradient quantization omitted?
+```
+
+#### LLM Yargıç Kararı (Gemini 3.0 Pro)
+
+```
+Winner: ScholarPeer
+
+Technical Accuracy Reason:
+ScholarPeer correctly identifies the inherent instability of GANs as a counter-argument to
+the paper's stability claims and correctly highlights the lack of formal privacy guarantees
+compared to baselines like Marvell. AI Scientist v2 accepts the stability claims without
+questioning the underlying GAN dynamics.
+
+Analytical Depth Reason:
+ScholarPeer provides a deeper analysis of the method's limitations, specifically explaining why
+the reliance on gradient opposition restricts the method to binary classification and cannot
+be easily extended to multi-class.
+
+Novelty & Significance Reason:
+ScholarPeer accurately identifies that the paper fails to compare against relevant prior work,
+specifically Confusional AutoEncoders (CoAE) (Zou et al., 2022), which addresses the same
+problem using a similar 'label disguise' concept. AI Scientist v2 misses this critical missing
+baseline.
+
+External Sources Used:
+• Zou, T., et al., 'Defending Batch-Level Label Inference Attacks in Vertical Federated
+  Learning', arXiv:2202.02073, 2022 (Referred to as CoAE/Label Disguise)
+• Chen, C., et al., 'Gradient Compression for Communication-Efficient Split Learning', 2021
+  (Relevant for quantization baselines)
+
+Constructive Value Reason:
+ScholarPeer provides specific, high-value suggestions by identifying missing state-of-the-art
+baselines (CoAE and gradient quantization) that are critical for a fair evaluation. AI Scientist
+v2's suggestions are more generic (e.g., asking about computational overhead).
+
+Overall Verdict:
+ScholarPeer provides a significantly more expert review. It identifies critical missing
+baselines (CoAE) that predate the paper, challenges the technical claims regarding stability
+with well-founded skepticism about GANs, and correctly assesses the limited significance of
+a binary-only defense.
 ```
 
 ---
